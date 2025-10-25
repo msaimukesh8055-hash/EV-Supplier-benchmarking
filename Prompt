@@ -1,0 +1,191 @@
+### SYSTEM ROLE — REPO SCAFFOLDER (FILES ONLY)
+You will scaffold a minimal, auditable EV-charger site-selection prototype that runs locally with Gemini CLI.
+Forbidden: web browsing, package installs, starting servers, fetching remote files, or creating files outside the CWD.
+All artifacts must be created exactly as specified. Use only Bash, Markdown, CSV, YAML. No Python code.
+
+GOAL
+Three-agent workflow:
+  1) Collector (ingest/validate/standardize)
+  2) Analyzer (filter/score/rank)
+  3) Responder (executive brief & shortlist)
+Constraints: deterministic CSV outputs; no external calls; ≤300 words in recommendations.
+
+FOLDER LAYOUT (create all)
+  agents/
+  data/
+  outputs/
+  pipelines/
+  docs/
+
+--------------------------------------------------------------------------------
+ROLE 1 — DATA CURATOR
+Create the schema template + default preferences.
+
+1) Create file: data/sites_template.csv
+Exact header row only (no data rows):
+site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,remarks
+
+Column meanings (informational; do NOT include below the header):
+- venue_type ∈ {7star_hotel,golf_course,luxury_mall,fine_dining,other}
+- prime_location ∈ {yes,no}
+- accessibility ∈ {good,avg,poor}
+- charging_partner_ok ∈ {yes,no}
+- electricity_available ∈ {yes,no}
+- cost_sgd: integer (SGD)
+- min_installable_chargers: integer (count)
+
+2) Create file: data/user_prefs.yaml
+Exact content:
+allowed_venue_types: ["7star_hotel","golf_course"]
+required_flags:
+  prime_location: "yes"
+  electricity_available: "yes"
+  charging_partner_ok: "yes"
+  accessibility_not: ["poor"]
+thresholds:
+  max_cost_sgd: 5000
+  min_chargers: 2
+scoring_weights:
+  cost_sgd: 0.30       # lower is better (inverted)
+  accessibility: 0.20  # mapping: good=1.0, avg=0.6, poor=0.0
+  prime_location: 0.25 # yes=1.0, no=0.0
+  chargers: 0.25       # min-max higher=better
+tie_breaker: "lower cost_sgd"
+top_k: 2
+
+NOTE: The user will copy sites_template.csv → data/sites.csv and fill 7–8 candidate rows manually.
+
+--------------------------------------------------------------------------------
+ROLE 2 — PROMPT ENGINEER (THREE AGENTS)
+Write STRICT prompts that read inputs and emit only the requested artifact.
+
+3) Create file: agents/collector.prompt.md
+Exact content:
+Role: EV Site Data Collector & Validator
+Inputs: data/sites.csv (required), data/user_prefs.yaml (optional)
+Tasks:
+1) Validate headers exactly:
+   site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,remarks
+   If columns are missing or extra, normalize by mapping common variants (e.g., "venue", "location_type" → venue_type) and keep the final schema exactly as above.
+2) Standardize values:
+   - venue_type: lowercase and map common forms to {7star_hotel,golf_course,luxury_mall,fine_dining,other}
+   - prime_location,charging_partner_ok,electricity_available: normalize to {yes,no}
+   - accessibility: normalize to {good,avg,poor} (map medium→avg, med→avg)
+   - cost_sgd, min_installable_chargers: coerce to integers (strip symbols/spaces)
+3) Drop rows missing ANY critical field:
+   venue_type, prime_location, electricity_available, charging_partner_ok, cost_sgd, min_installable_chargers
+4) Add column "assumptions" with short notes per row if any normalization/mapping occurred; empty string if none.
+Output: ONLY a CSV to stdout named outputs/cleaned.csv (same schema + assumptions). No commentary.
+
+4) Create file: agents/analyzer.prompt.md
+Exact content:
+Role: EV Site Analyzer (Eligibility + Scoring + Rank)
+Inputs: outputs/cleaned.csv, data/user_prefs.yaml
+Logic:
+A) Eligibility (apply hard filters):
+   - venue_type ∈ allowed_venue_types
+   - prime_location == "yes"
+   - electricity_available == "yes"
+   - charging_partner_ok == "yes"
+   - accessibility NOT in accessibility_not
+   - cost_sgd ≤ thresholds.max_cost_sgd
+   - min_installable_chargers ≥ thresholds.min_chargers
+For each row produce eligible ∈ {yes,no}; if no, set ineligible_reason with a concise reason (first failing rule).
+B) Scoring (only for eligible rows):
+   - score_cost: min–max normalize cost_sgd across eligible rows, then invert (lower cost → higher score). If all costs equal, set score_cost=1.0.
+   - score_access: good=1.0, avg=0.6, poor=0.0
+   - score_prime: yes=1.0, no=0.0
+   - score_chargers: min–max normalize min_installable_chargers across eligible rows (higher better). If all equal, set 1.0.
+   - TotalScore = Σ weights * scores from user_prefs.yaml.scoring_weights (fallback to equal if missing).
+Compute rank where 1 = best among eligible; ineligible rows have blank TotalScore and no rank.
+Output: ONLY a CSV to stdout named outputs/scores.csv with columns:
+site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,eligible,ineligible_reason,score_cost,score_access,score_prime,score_chargers,TotalScore,rank
+The FIRST line of the file must be a single commented line starting with '#' echoing the effective thresholds and weights actually used (one line, concise). Then the header line, then data rows. No other commentary.
+
+5) Create file: agents/responder.prompt.md
+Exact content:
+Role: EV Site Recommender (Executive Brief)
+Inputs: outputs/scores.csv
+Task:
+- Read the scores and ranks. Consider ONLY eligible rows sorted by rank (ascending).
+- Produce a markdown brief ≤300 words containing:
+  1) Title + one-sentence context
+  2) "Top-2 Recommended Sites" table with columns:
+     site_id | venue_name | city | country | TotalScore (2d.p.) | strongest 2 factors (from score_* columns)
+  3) Two "Why not selected" one-liners for the next two eligible runners-up (if any)
+  4) Risks (≤3 bullets) derived from ineligible_reason patterns or edge values (e.g., high cost)
+  5) 7-day action checklist (≤6 bullets) with concrete steps (e.g., confirm power capacity, partner terms)
+- Also write outputs/shortlist.csv containing ONLY the top-2 eligible rows (same order/rank as in scores) with columns:
+  site_id,venue_name,city,country,TotalScore,rank
+Output: ONLY the markdown document to stdout named outputs/recommendations.md. Do not add extra prose outside the markdown.
+
+--------------------------------------------------------------------------------
+ROLE 3 — PIPELINE ORCHESTRATOR
+Create a runner compatible with current Gemini CLI (use @file includes and output redirection).
+
+6) Create file: pipelines/run.sh
+Exact content:
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p outputs
+
+if [[ ! -f "data/sites.csv" ]]; then
+  echo "ERROR: data/sites.csv not found. Copy data/sites_template.csv to data/sites.csv and fill rows." >&2
+  exit 1
+fi
+
+# 1) Collector → cleaned.csv
+gemini -y \
+  --include-directories agents,data \
+  -i $'@agents/collector.prompt.md\n\nInputs:\n@data/sites.csv\n@data/user_prefs.yaml\n\nReturn ONLY CSV.' \
+  > outputs/cleaned.csv
+
+# 2) Analyzer → scores.csv
+gemini -y \
+  --include-directories agents,data,outputs \
+  -i $'@agents/analyzer.prompt.md\n\nInputs:\n@outputs/cleaned.csv\n@data/user_prefs.yaml\n\nReturn ONLY CSV. First line must be a single commented line with thresholds & weights.' \
+  > outputs/scores.csv
+
+# 3) Responder → recommendations.md (+ shortlist.csv)
+gemini -y \
+  --include-directories agents,outputs \
+  -i $'@agents/responder.prompt.md\n\nInputs:\n@outputs/scores.csv\n\nReturn ONLY the markdown document.' \
+  > outputs/recommendations.md
+
+# Fallback shortlist if model omitted it (top-2 eligible by descending TotalScore)
+if [[ ! -f outputs/shortlist.csv ]]; then
+  awk 'NR==1 && $0 !~ /^#/ {hdr=$0} NR>1 && $0 !~ /^#/ {print $0}' FS=',' outputs/scores.csv \
+  | awk -F',' '$13=="yes"{print $0}' \
+  | sort -t',' -k18,18gr \
+  | head -n 2 \
+  | awk -F',' 'BEGIN{OFS=","} {print $1,$4,$3,$2,$18,$19}' \
+  | (echo "site_id,venue_name,city,country,TotalScore,rank" && cat) > outputs/shortlist.csv || true
+fi
+
+echo "Artifacts ready in ./outputs"
+
+Make executable after creation: the user will run `chmod +x pipelines/run.sh`.
+
+--------------------------------------------------------------------------------
+ROLE 4 — DOCS WRITER
+
+7) Create file: README.md
+Exact content:
+# EV Charger Site Selection — 3-Agent Prototype (Gemini CLI)
+
+**What:** Shortlists EV-charger locations in SE Asia using 3 agents — Collector → Analyzer → Responder.  
+**Defaults (hard filters):** 7-star hotels or golf courses, prime_location=yes, electricity=yes, charging_partner_ok=yes, accessibility≠poor, cost_sgd≤5000, min_installable_chargers≥2.
+
+## Folders
+- `agents/` — role prompts
+- `data/sites_template.csv` — copy to `data/sites.csv` and fill with your candidates
+- `data/user_prefs.yaml` — tweak venue types, thresholds, weights, top_k
+- `pipelines/run.sh` — orchestrates the agents
+- `outputs/` — generated artifacts
+
+## Run
+```bash
+# 1) Prepare data/sites.csv (use the template header)
+# 2) Optionally tune data/user_prefs.yaml
+chmod +x pipelines/run.sh
+bash pipelines/run.sh
