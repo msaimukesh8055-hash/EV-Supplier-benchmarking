@@ -1,6 +1,6 @@
 # EV Charger Site Selection - Multi-Agent Prototype
 
-## 📌 Overview
+## Overview
 This project demonstrates how **Agentic AI workflows** can automate complex business decisions.  
 The use case is **EV charger site selection** across Southeast Asia, where business teams need to shortlist  
 potential installation sites (hotels, malls, golf courses) based on strict feasibility and financial filters.  
@@ -10,12 +10,12 @@ I built a **3-Agent workflow** using **Gemini CLI** and a Gradio UI wrapper:
 2. **Analyzer Agent** → Applies eligibility rules & multi-factor scoring (cost, accessibility, prime location, charger capacity).  
 3. **Responder Agent** → Produces an executive brief with top-2 recommended sites, risks, and next steps.  
 
-## ❌ Current Business Pain Points
+## Current Business Pain Points
 - Manual site evaluations across 10+ markets → slow, inconsistent.
 - Difficult to apply **standardized filters** (prime location, accessibility, cost cap, etc.) at scale.
 - Executives need **shortlists + risks** summarized in clear, decision-ready language.
 
-## ✅ Solution
+## Solution
 - Upload a **sites.csv** with candidate locations.  
 - Agents automatically **clean, filter, score, and rank** sites.  
 - Outputs:
@@ -24,7 +24,7 @@ I built a **3-Agent workflow** using **Gemini CLI** and a Gradio UI wrapper:
   - `shortlist.csv` (top-2 sites)
   - `recommendations.md` (executive brief with risks & checklist)
 
-## 📂 Input Example
+## Input Example
 **sites.csv**
 ```csv
 site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,remarks
