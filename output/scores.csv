@@ -1,0 +1,8 @@
+# venues:['7star_hotel','golf_course'], prime:yes, elec:yes, partner:yes, no_access:['poor'], max_cost:5000, min_charge:2 | weights: cost:0.3, access:0.2, prime:0.25, chargers:0.25
+site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,eligible,ineligible_reason,score_cost,score_access,score_prime,score_chargers,TotalScore,rank
+SG-01,Singapore,Singapore,Marina Bay Grand,7star_hotel,yes,good,yes,yes,4800,3,yes,"",0.0,1.0,1.0,1.0,0.70,2
+SG-02,Singapore,Singapore,Singapore Island Club,golf_course,yes,avg,yes,yes,5200,4,no,"Cost > 5000",,,,,
+TH-01,Thailand,Bangkok,Royal Greens,golf_course,yes,good,yes,yes,4500,2,yes,"",1.0,1.0,1.0,0.0,0.75,1
+TH-02,Thailand,Bangkok,Silom Galleria,luxury_mall,yes,good,yes,yes,3900,2,no,"Venue type not in [7star_hotel, golf_course]",,,,,
+MY-01,Malaysia,Kuala Lumpur,Imperial Crown Hotel,7star_hotel,no,good,yes,yes,4200,3,no,"Prime location is not 'yes'",,,,,
+ID-01,Indonesia,Jakarta,Jakarta National Golf,golf_course,yes,poor,yes,yes,3000,2,no,"Accessibility is poor",,,,,
