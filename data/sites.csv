@@ -1,0 +1,7 @@
+site_id,country,city,venue_name,venue_type,prime_location,accessibility,charging_partner_ok,electricity_available,cost_sgd,min_installable_chargers,remarks
+SG-01,Singapore,Singapore,Marina Bay Grand,7star_hotel,yes,good,yes,yes,4800,3,Iconic waterfront property
+SG-02,Singapore,Singapore,Singapore Island Club,golf_course,yes,avg,yes,yes,5200,4,Elite member base; slightly over cost cap
+TH-01,Thailand,Bangkok,Royal Greens,golf_course,yes,good,yes,yes,4500,2,Easy grid access
+TH-02,Thailand,Bangkok,Silom Galleria,luxury_mall,yes,good,yes,yes,3900,2,Not in allowed venue types by default
+MY-01,Malaysia,Kuala Lumpur,Imperial Crown Hotel,7star_hotel,no,good,yes,yes,4200,3,Prime flag is no
+ID-01,Indonesia,Jakarta,Jakarta National Golf,golf_course,yes,poor,yes,yes,3000,2,Accessibility poor

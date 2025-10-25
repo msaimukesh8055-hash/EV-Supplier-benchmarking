@@ -1,0 +1,16 @@
+allowed_venue_types: ["7star_hotel","golf_course"]
+required_flags:
+  prime_location: "yes"
+  electricity_available: "yes"
+  charging_partner_ok: "yes"
+  accessibility_not: ["poor"]
+thresholds:
+  max_cost_sgd: 5000
+  min_chargers: 2
+scoring_weights:
+  cost_sgd: 0.30       # lower is better (inverted)
+  accessibility: 0.20  # mapping: good=1.0, avg=0.6, poor=0.0
+  prime_location: 0.25 # yes=1.0, no=0.0
+  chargers: 0.25       # min-max higher=better
+tie_breaker: "lower cost_sgd"
+top_k: 2
